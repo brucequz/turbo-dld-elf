@@ -7,6 +7,8 @@
 
 std::vector<std::vector<ListDecoder::cell>>
 ListDecoder::constructOneTrellis(std::vector<double> receivedMessage) {
+
+  pathLength = receivedMessage.size() + 1;
   std::vector<std::vector<cell>> trellisInfo;
   trellisInfo =
       std::vector<std::vector<cell>>(numStates, std::vector<cell>(pathLength));
@@ -22,12 +24,15 @@ ListDecoder::constructOneTrellis(std::vector<double> receivedMessage) {
   precomputedMetrics = std::vector<std::vector<double>>(receivedMessage.size(),
                                                         std::vector<double>(2));
 
+  
+
   for (int stage = 0; stage < receivedMessage.size(); stage++) {
     // precomputedMetrics[stage][0] = std::abs(receivedMessage[stage] - 1);
     // precomputedMetrics[stage][1] = std::abs(receivedMessage[stage] + 1);
     precomputedMetrics[stage][0] = std::pow(receivedMessage[stage] - 1, 2);
     precomputedMetrics[stage][1] = std::pow(receivedMessage[stage] + 1, 2);
   }
+
 
   // building the trellis
   for (int stage = 0; stage < receivedMessage.size(); stage++) {
@@ -76,6 +81,7 @@ ListDecoder::constructOneTrellis(std::vector<double> receivedMessage) {
       }
     }
   }
+
   return trellisInfo;
 }
 

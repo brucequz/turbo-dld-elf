@@ -11,6 +11,8 @@ using namespace std;
 std::vector<std::vector<std::vector<ListDecoder::cell>>>
 ListDecoder::constructNTrellis(std::vector<double> receivedMessage) {
   // trellisInfo is indexed [starting/ending state][state][stage]
+
+  std::cout << "constructing " << numStates / 2 << " trellises" << std::endl;
   pathLength = receivedMessage.size() + 1;
   std::vector<std::vector<std::vector<cell>>> trellisInfo;
   trellisInfo = std::vector<std::vector<std::vector<cell>>>(

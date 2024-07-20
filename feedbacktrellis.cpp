@@ -77,7 +77,6 @@ void FeedbackTrellis::computeNextStates() {
     base_poly[i] = primitive_polys[V - 2][i] - '0';
   }
   galois::GaloisField gf1 = galois::GaloisField(V, base_poly);
-  std::cout << "GF construction successful" << std::endl;
 
   // convert denominator to binary
   std::string b;

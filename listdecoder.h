@@ -40,7 +40,6 @@ public:
 		bool listSizeExceeded;
 		double metric;
 		int decoder_index;
-		int listRank;
 	};
 
 	ListDecoder(DualTrellis DT, int listSize, int crcDegree, int crc);
@@ -93,9 +92,9 @@ protected:
 
 	std::vector<std::vector<cell>> constructZTTrellis(std::vector<double> receivedMessage);
 
-	messageInformation traceback_Single(minheap* detourTree, int& numPathsSearched, std::vector<std::vector<int>>& previousPaths, std::vector<std::vector<std::vector<cell>>>& trellisInfo);
+	messageInformation traceback_Single(minheap* detourTree, int& numPathsSearched, std::vector<std::vector<int>>& previousPaths, std::vector<std::vector<cell>>& trellisInfo);
 
-	messageInformation traceback_deinterleave_Single(minheap* detourTree, int& numPathsSearched, std::vector<std::vector<int>>& previousPaths, std::vector<std::vector<std::vector<cell>>>& trellisInfo, unsigned short int* deinterleaver_ptr);
+	messageInformation traceback_deinterleave_Single(minheap* detourTree, int& numPathsSearched, std::vector<std::vector<int>>& previousPaths, std::vector<std::vector<cell>>& trellisInfo, unsigned short int* deinterleaver_ptr);
 };
 
 struct DLDInfo {

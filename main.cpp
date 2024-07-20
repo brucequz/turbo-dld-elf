@@ -22,7 +22,11 @@ using namespace std;
 
 #include "MinHeap.h"
 
+// static std::random_device rd {};
+// static std::mt19937 generator {rd()};
+
 int LISTSIZE = 1e3;
+int NUMTRIALS = 1e4;
 
 static default_random_engine generator;
 
@@ -121,28 +125,24 @@ void elf_turbo_simulation(codeInformation code) {
   // 	deinterleaved_data_vector.push_back(interleaved_data_vector[deinterleaver[i]]);
   // }
 
-  vector<double> SNR = {20};
+  vector<double> SNR = {5};
   // outer loop: SNR
   for (int s = 0; s < SNR.size(); s++) {
     double cur_SNR = SNR[s];
 
-    int targetedErrors = 100;
+    int targetedErrors = 10;
     int numerror = 0;
     int numtrial = 0;
     // inner loop: MC trials
-    while (numerror < targetedErrors || numtrial < 1e4) {
+    while (numerror < targetedErrors && numtrial < NUMTRIALS) {
 
-      std::cout << "trial number: " << numtrial << std::endl;
+			if (numtrial % 1000 == 0) {std::cout << "trial number: " << numtrial << std::endl;}
 
       std::vector<int> original_message;
       for (int i = 0; i < code.numInfoBits; i++) {
         original_message.push_back(rand() % 2);
         // original_message.push_back(0);
       }
-
-      std::cout << "original_message message: ";
-      print_int_vector(original_message);
-      std::cout << std::endl;
 
       crc_calculation(original_message, code.crcDeg, code.crc);
       std::vector<int> encodedMessage =
@@ -155,23 +155,11 @@ void elf_turbo_simulation(codeInformation code) {
         X_R1.push_back(encodedMessage[j]);
       }
 
-      std::cout << "X_sys message: ";
-      print_int_vector(X_sys);
-      std::cout << std::endl;
-
-      std::cout << "X_R1 message: ";
-      print_int_vector(X_R1);
-      std::cout << std::endl;
-
       // interleaved original message
       std::vector<int> pi_original_message;
       for (int ii = 0; ii < Km; ii++) {
         pi_original_message.push_back(original_message[interleaver[ii]]);
       }
-
-      std::cout << "pi_original_message: ";
-      print_int_vector(pi_original_message);
-      std::cout << std::endl;
 
       // encode interleaved message
       std::vector<int> encodedMessage_inter =
@@ -182,14 +170,11 @@ void elf_turbo_simulation(codeInformation code) {
         X_R2.push_back(encodedMessage_inter[j]);
       }
 
-      std::cout << "X_R2 message: ";
-      print_int_vector(X_R2);
-      std::cout << std::endl;
-
       // add noise
       std::vector<double> Y_R1 = addNoise(X_R1, cur_SNR);
       std::vector<double> Y_R2 = addNoise(X_R2, cur_SNR);
       std::vector<double> Y_sys = addNoise(X_sys, cur_SNR);
+
       // puncture both parity sequences
       for (int p = 0; p < Y_R1.size(); p++) {
         for (int q = 0; q < punc_idx.size(); q++) {
@@ -224,9 +209,19 @@ void elf_turbo_simulation(codeInformation code) {
       DualListDecoder DLD(codeList, LISTSIZE);
       DLDInfo result =
           DLD.DualListDecoding_TurboELF(DLD_R1, DLD_R2, deinterleaver);
-
       numtrial++;
-    }
+
+      // std::cout << "result list size: ";
+      // print_int_vector(result.list_ranks);
+      // std::cout << std::endl;
+
+			if (result.message.size() != original_message.size() || result.message != original_message) {
+				numerror++;
+			}
+		}
+
+		std::cout << "For SNR = " << cur_SNR << ", number of trials: " << numtrial << ", number of errors: " << numerror << std::endl;
+		std::cout << "FER: " << (double)numerror / numtrial << std::endl;
   }
 }
 

@@ -62,9 +62,9 @@ void DualListDecoder::DualListMap::insert(const ListDecoder::messageInformation&
     DLDInfo agreed_message;
     agreed_message.combined_metric = mi.metric;
     if (it->second.decoder_index == 0) {
-      agreed_message.list_ranks = {it->second.listRank, mi.listRank};
+      agreed_message.list_ranks = {it->second.listSize, mi.listSize};
     } else if (it->second.decoder_index == 1) {
-      agreed_message.list_ranks = {mi.listRank, it->second.listRank};
+      agreed_message.list_ranks = {mi.listSize, it->second.listSize};
     } else {
       std::cerr << "Invalid decoder order" << std::endl;
     }
@@ -94,137 +94,146 @@ DLDInfo DualListDecoder::DualListMap::get_top() {
   return top;
 }
 
-ListDecoder::messageInformation ListDecoder::traceback_Single(minheap* detourTree, int& numPathsSearched, std::vector<std::vector<int>>& previousPaths, std::vector<std::vector<std::vector<cell>>>& trellisInfo) {
+ListDecoder::messageInformation ListDecoder::traceback_Single(minheap* detourTree, int& numPathsSearched, std::vector<std::vector<int>>& previousPaths, std::vector<std::vector<cell>>& trellisInfo) {
   messageInformation mi;
   bool path_found = false;
 
-  while (!path_found) {
-    
-		DetourObject detour = detourTree->pop();
-		std::vector<int> path(pathLength);
+  while (!path_found && numPathsSearched < listSize) {
+    DetourObject detour = detourTree->pop();
+    std::vector<int> path(pathLength);
 
-		int newTracebackStage = pathLength - 1;
-		double forwardPartialPathMetric = 0;
-		int currentState = detour.startingState;
+    int newTracebackStage = pathLength - 1;
+    double forwardPartialPathMetric = 0;
+    int currentState = detour.startingState;
 
-		// if we are taking a detour from a previous path, we skip backwards to the point where we take the
-		// detour from the previous path
-		if(detour.originalPathIndex != -1){
-			forwardPartialPathMetric = detour.forwardPathMetric;
-			newTracebackStage = detour.detourStage;
+    // if we are taking a detour from a previous path, we skip backwards to the
+    // point where we take the detour from the previous path
+    if (detour.originalPathIndex != -1) {
+      forwardPartialPathMetric = detour.forwardPathMetric;
+      newTracebackStage = detour.detourStage;
 
-			// while we only need to copy the path from the detour to the end, this simplifies things,
-			// and we'll write over the earlier data in any case
-			path = previousPaths[detour.originalPathIndex];
-			currentState = path[newTracebackStage];
+      // while we only need to copy the path from the detour to the end, this
+      // simplifies things, and we'll write over the earlier data in any case
+      path = previousPaths[detour.originalPathIndex];
+      currentState = path[newTracebackStage];
 
-			double suboptimalPathMetric = trellisInfo[detour.startingState][currentState][newTracebackStage].suboptimalPathMetric;
+      double suboptimalPathMetric =
+          trellisInfo[currentState][newTracebackStage].suboptimalPathMetric;
 
-			currentState = trellisInfo[detour.startingState][currentState][newTracebackStage].suboptimalFatherState;
-			newTracebackStage--;
-			
-			double prevPathMetric = trellisInfo[detour.startingState][currentState][newTracebackStage].pathMetric;
+      currentState =
+          trellisInfo[currentState][newTracebackStage].suboptimalFatherState;
+      newTracebackStage--;
 
-			forwardPartialPathMetric += suboptimalPathMetric - prevPathMetric;
-			
-		}
-		path[newTracebackStage] = currentState;
+      double prevPathMetric =
+          trellisInfo[currentState][newTracebackStage].pathMetric;
 
-		// actually tracing back
-		for(int stage = newTracebackStage; stage > 0; stage--){
-			double suboptimalPathMetric = trellisInfo[detour.startingState][currentState][stage].suboptimalPathMetric;
-			double currPathMetric = trellisInfo[detour.startingState][currentState][stage].pathMetric;
+      forwardPartialPathMetric += suboptimalPathMetric - prevPathMetric;
+    }
+    path[newTracebackStage] = currentState;
 
-			// if there is a detour we add to the detourTree
-			if(trellisInfo[detour.startingState][currentState][stage].suboptimalFatherState != -1){
-				DetourObject localDetour;
-				localDetour.detourStage = stage;
-				localDetour.originalPathIndex = numPathsSearched;
-				localDetour.pathMetric = suboptimalPathMetric + forwardPartialPathMetric;
-				localDetour.forwardPathMetric = forwardPartialPathMetric;
-				localDetour.startingState = detour.startingState;
-				//queue.push(localDetour);
-				detourTree->insert(localDetour);
-			}
-			currentState = trellisInfo[detour.startingState][currentState][stage].optimalFatherState;
-			double prevPathMetric = trellisInfo[detour.startingState][currentState][stage - 1].pathMetric;
-			forwardPartialPathMetric += currPathMetric - prevPathMetric;
-			path[stage - 1] = currentState;
-		}
-		previousPaths.push_back(path);
+    // actually tracing back
+    for (int stage = newTracebackStage; stage > 0; stage--) {
+      double suboptimalPathMetric =
+          trellisInfo[currentState][stage].suboptimalPathMetric;
+      double currPathMetric = trellisInfo[currentState][stage].pathMetric;
 
+      // if there is a detour we add to the detourTree
+      if (trellisInfo[currentState][stage].suboptimalFatherState != -1) {
+        DetourObject localDetour;
+        localDetour.detourStage = stage;
+        localDetour.originalPathIndex = numPathsSearched;
+        localDetour.pathMetric =
+            suboptimalPathMetric + forwardPartialPathMetric;
+        localDetour.forwardPathMetric = forwardPartialPathMetric;
+        localDetour.startingState = detour.startingState;
+        detourTree->insert(localDetour);
+      }
+      currentState = trellisInfo[currentState][stage].optimalFatherState;
+      double prevPathMetric = trellisInfo[currentState][stage - 1].pathMetric;
+      forwardPartialPathMetric += currPathMetric - prevPathMetric;
+      path[stage - 1] = currentState;
+    }
+    previousPaths.push_back(path);
 
-		std::vector<int> message = pathToMessage(path);
-    
-    if(crc_check(message, crcDegree, crc)){
-			mi.message = message;
-			mi.path = path;
-			mi.listSize = numPathsSearched + 1;
-			path_found = true;
-		}
+    std::vector<int> message = pathToMessage(path);
+
+    // one trellis decoding requires both a tb and crc check
+    if (path[0] == path[pathLength - 1] && crc_check(message, crcDegree, crc)) {
+      mi.message = message;
+      mi.path = path;
+      mi.listSize = numPathsSearched + 1;
+      path_found = true;
+      numPathsSearched++;
+      return mi;
+    }
+
     numPathsSearched++;
   }
+  mi.listSizeExceeded = true;
   return mi;
 }
 
-ListDecoder::messageInformation ListDecoder::traceback_deinterleave_Single(minheap* detourTree, int& numPathsSearched, std::vector<std::vector<int>>& previousPaths, std::vector<std::vector<std::vector<cell>>>& trellisInfo, unsigned short int* deinterleaver_ptr) {
+ListDecoder::messageInformation ListDecoder::traceback_deinterleave_Single(minheap* detourTree, int& numPathsSearched, std::vector<std::vector<int>>& previousPaths, std::vector<std::vector<cell>>& trellisInfo, unsigned short int* deinterleaver_ptr) {
   messageInformation mi;
   bool path_found = false;
 
-  while (!path_found) {
+  while (!path_found && numPathsSearched < listSize) {
     
 		DetourObject detour = detourTree->pop();
-		std::vector<int> path(pathLength);
+    std::vector<int> path(pathLength);
 
-		int newTracebackStage = pathLength - 1;
-		double forwardPartialPathMetric = 0;
-		int currentState = detour.startingState;
+    int newTracebackStage = pathLength - 1;
+    double forwardPartialPathMetric = 0;
+    int currentState = detour.startingState;
 
-		// if we are taking a detour from a previous path, we skip backwards to the point where we take the
-		// detour from the previous path
-		if(detour.originalPathIndex != -1){
-			forwardPartialPathMetric = detour.forwardPathMetric;
-			newTracebackStage = detour.detourStage;
+    // if we are taking a detour from a previous path, we skip backwards to the
+    // point where we take the detour from the previous path
+    if (detour.originalPathIndex != -1) {
+      forwardPartialPathMetric = detour.forwardPathMetric;
+      newTracebackStage = detour.detourStage;
 
-			// while we only need to copy the path from the detour to the end, this simplifies things,
-			// and we'll write over the earlier data in any case
-			path = previousPaths[detour.originalPathIndex];
-			currentState = path[newTracebackStage];
+      // while we only need to copy the path from the detour to the end, this
+      // simplifies things, and we'll write over the earlier data in any case
+      path = previousPaths[detour.originalPathIndex];
+      currentState = path[newTracebackStage];
 
-			double suboptimalPathMetric = trellisInfo[detour.startingState][currentState][newTracebackStage].suboptimalPathMetric;
+      double suboptimalPathMetric =
+          trellisInfo[currentState][newTracebackStage].suboptimalPathMetric;
 
-			currentState = trellisInfo[detour.startingState][currentState][newTracebackStage].suboptimalFatherState;
-			newTracebackStage--;
-			
-			double prevPathMetric = trellisInfo[detour.startingState][currentState][newTracebackStage].pathMetric;
+      currentState =
+          trellisInfo[currentState][newTracebackStage].suboptimalFatherState;
+      newTracebackStage--;
 
-			forwardPartialPathMetric += suboptimalPathMetric - prevPathMetric;
-			
-		}
-		path[newTracebackStage] = currentState;
+      double prevPathMetric =
+          trellisInfo[currentState][newTracebackStage].pathMetric;
 
-		// actually tracing back
-		for(int stage = newTracebackStage; stage > 0; stage--){
-			double suboptimalPathMetric = trellisInfo[detour.startingState][currentState][stage].suboptimalPathMetric;
-			double currPathMetric = trellisInfo[detour.startingState][currentState][stage].pathMetric;
+      forwardPartialPathMetric += suboptimalPathMetric - prevPathMetric;
+    }
+    path[newTracebackStage] = currentState;
 
-			// if there is a detour we add to the detourTree
-			if(trellisInfo[detour.startingState][currentState][stage].suboptimalFatherState != -1){
-				DetourObject localDetour;
-				localDetour.detourStage = stage;
-				localDetour.originalPathIndex = numPathsSearched;
-				localDetour.pathMetric = suboptimalPathMetric + forwardPartialPathMetric;
-				localDetour.forwardPathMetric = forwardPartialPathMetric;
-				localDetour.startingState = detour.startingState;
-				//queue.push(localDetour);
-				detourTree->insert(localDetour);
-			}
-			currentState = trellisInfo[detour.startingState][currentState][stage].optimalFatherState;
-			double prevPathMetric = trellisInfo[detour.startingState][currentState][stage - 1].pathMetric;
-			forwardPartialPathMetric += currPathMetric - prevPathMetric;
-			path[stage - 1] = currentState;
-		}
-		previousPaths.push_back(path);
+    // actually tracing back
+    for (int stage = newTracebackStage; stage > 0; stage--) {
+      double suboptimalPathMetric =
+          trellisInfo[currentState][stage].suboptimalPathMetric;
+      double currPathMetric = trellisInfo[currentState][stage].pathMetric;
+
+      // if there is a detour we add to the detourTree
+      if (trellisInfo[currentState][stage].suboptimalFatherState != -1) {
+        DetourObject localDetour;
+        localDetour.detourStage = stage;
+        localDetour.originalPathIndex = numPathsSearched;
+        localDetour.pathMetric =
+            suboptimalPathMetric + forwardPartialPathMetric;
+        localDetour.forwardPathMetric = forwardPartialPathMetric;
+        localDetour.startingState = detour.startingState;
+        detourTree->insert(localDetour);
+      }
+      currentState = trellisInfo[currentState][stage].optimalFatherState;
+      double prevPathMetric = trellisInfo[currentState][stage - 1].pathMetric;
+      forwardPartialPathMetric += currPathMetric - prevPathMetric;
+      path[stage - 1] = currentState;
+    }
+    previousPaths.push_back(path);
 
 
 		std::vector<int> message = pathToMessage(path);
@@ -233,14 +242,18 @@ ListDecoder::messageInformation ListDecoder::traceback_deinterleave_Single(minhe
     	deinterleaved_message.push_back(message[deinterleaver_ptr[i]]);
     }
 
-    if(crc_check(deinterleaved_message, crcDegree, crc)){
+    if(path[0] == path[pathLength - 1] && crc_check(deinterleaved_message, crcDegree, crc)){
 			mi.message = deinterleaved_message;
 			mi.path = path;
 			mi.listSize = numPathsSearched + 1;
 			path_found = true;
+      numPathsSearched++;
+      return mi;
 		}
+
     numPathsSearched++;
   }
+  mi.listSizeExceeded = true;
   return mi;
 }
 
@@ -256,18 +269,18 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF(std::vector<double> txSig_0, 
 */
 
   DLDInfo result;
-  int pathLength = txSig_1.size() + 1;
+  int pathLength = txSig_1.size() + 1;  // FIXME!
 
 
   // Construct trellis
-  std::vector<std::vector<std::vector<ListDecoder::cell>>> trellisInfo_0;
-  std::vector<std::vector<std::vector<ListDecoder::cell>>> trellisInfo_1;
-  trellisInfo_0 = list_decoders_[0].constructNTrellis(txSig_0);
-  trellisInfo_1 = list_decoders_[1].constructNTrellis(txSig_1);
+  std::vector<std::vector<ListDecoder::cell>> trellisInfo_0;
+  std::vector<std::vector<ListDecoder::cell>> trellisInfo_1;
 
-
-  int num_total_stages_0 = trellisInfo_0[0][0].size();
-  int num_total_stages_1 = trellisInfo_1[0][0].size();
+  trellisInfo_0 = list_decoders_[0].constructOneTrellis(txSig_0);
+  trellisInfo_1 = list_decoders_[1].constructOneTrellis(txSig_1);
+  
+  int num_total_stages_0 = trellisInfo_0[0].size();
+  int num_total_stages_1 = trellisInfo_1[0].size();
   std::vector<std::vector<int>> prev_paths_list_0;
   std::vector<std::vector<int>> prev_paths_list_1;
   minheap* detourTree_0 = new minheap;
@@ -277,13 +290,13 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF(std::vector<double> txSig_0, 
   for(int i = 0; i <  list_decoders_[0].numStates / 2; i++){
 		DetourObject detour;
 		detour.startingState = i;
-		detour.pathMetric = trellisInfo_0[i][i][pathLength - 1].pathMetric;
+		detour.pathMetric = trellisInfo_0[i][pathLength - 1].pathMetric;
 		detourTree_0->insert(detour);
 	}
   for(int i = 0; i < list_decoders_[1].numStates / 2; i++){
 		DetourObject detour;
 		detour.startingState = i;
-		detour.pathMetric = trellisInfo_1[i][i][pathLength - 1].pathMetric;
+		detour.pathMetric = trellisInfo_1[i][pathLength - 1].pathMetric;
 		detourTree_1->insert(detour);
 	}
 
@@ -296,6 +309,7 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF(std::vector<double> txSig_0, 
   bool decoder_1_stop = false;
   bool decoder_1_LSE = false;
   bool best_combined_found = false;
+  
   while (!best_combined_found) {
 
     // check list size exceeded for both decoders 
@@ -313,11 +327,9 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF(std::vector<double> txSig_0, 
           detourTree_0, num_path_searched_0, prev_paths_list_0, trellisInfo_0);
       mi_0.decoder_index = 0;
 
-      std::cout << "Decoder 0 message: ";
-      print_int_vector(mi_0.message);
-      std::cout << std::endl;
-
+    
       if (!mi_0.listSizeExceeded) {
+        // std::cout << "m0 listSize: " << mi_0.listSize << std::endl;
         dual_list_map_.insert(mi_0);
       }
     }
@@ -330,19 +342,15 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF(std::vector<double> txSig_0, 
           detourTree_1, num_path_searched_1, prev_paths_list_1, trellisInfo_1, deinterleaver_ptr);
       mi_1.decoder_index = 1;
 
-      std::cout << "Decoder 1 message: ";
-      print_int_vector(mi_1.message);
-      std::cout << std::endl;
-
       if (!mi_1.listSizeExceeded) {
-
+        // std::cout << "m1 listSize: " << mi_1.listSize << std::endl;
         dual_list_map_.insert(mi_1);
       }
     }
 
     if (dual_list_map_.queue_size() != 0) {
-      std::cout << "common queue non zero." << std::endl;
-      DLDInfo best_combined = dual_list_map_.pop_queue();      
+      DLDInfo best_combined = dual_list_map_.pop_queue();
+      // std::cout << "best_combined_list_ranks: "  << best_combined.list_ranks[0] << ", " << best_combined.list_ranks[1] << std::endl;
       return best_combined;
     }
   }

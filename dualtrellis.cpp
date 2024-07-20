@@ -3,7 +3,6 @@
 
 DualTrellis::DualTrellis(std::vector<std::vector<int>> H)
     : numInputSymbols(2), numOutputSymbols(1) {
-  std::cout << "begin dual trellis construction" << std::endl;
   v = H[0].size(); // # of columns
   c = find_c(H);
   n = H.size(); // # of rows
