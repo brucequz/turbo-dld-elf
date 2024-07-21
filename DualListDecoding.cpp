@@ -500,7 +500,7 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF_BAM(std::vector<double> txSig
       DLDInfo best_combined = dual_list_map_.pop_queue();
       return best_combined;
     } else {
-      std::cout << "returning best available" << std::endl;
+      // std::cout << "returning best available" << std::endl;
       return best_available;
     }
   } // end of while loop

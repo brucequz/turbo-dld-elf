@@ -26,7 +26,8 @@ using namespace std;
 // static std::mt19937 generator {rd()};
 
 int LISTSIZE = 1e3;
-int NUMTRIALS = 1000;
+int NUMTRIALS = 100000;
+int MAXERRORS = 100;
 
 static default_random_engine generator;
 
@@ -125,16 +126,15 @@ void elf_turbo_simulation(codeInformation code) {
   // 	deinterleaved_data_vector.push_back(interleaved_data_vector[deinterleaver[i]]);
   // }
 
-  vector<double> SNR = {4};
+  vector<double> SNR = {4, 4.5};
   // outer loop: SNR
   for (int s = 0; s < SNR.size(); s++) {
     double cur_SNR = SNR[s];
 
-    int targetedErrors = 10;
     int numerror = 0;
     int numtrial = 0;
     // inner loop: MC trials
-    while (numerror < targetedErrors && numtrial < NUMTRIALS) {
+    while (numerror < MAXERRORS && numtrial < NUMTRIALS) {
 
 			if (numtrial % 1000 == 0) {std::cout << "trial number: " << numtrial << std::endl;}
 
@@ -228,7 +228,7 @@ void elf_turbo_simulation(codeInformation code) {
       std::vector<codeInformation> codeList = {code, code};
       DualListDecoder DLD(codeList, LISTSIZE);
       DLDInfo result =
-          DLD.DualListDecoding_TurboELF(DLD_R1, DLD_R2, deinterleaver);
+          DLD.DualListDecoding_TurboELF_BAM(DLD_R1, DLD_R2, interleaver, deinterleaver);
       numtrial++;
 
       // std::cout << "result list size: ";
