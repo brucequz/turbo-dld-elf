@@ -138,6 +138,7 @@ public:
 	};
 
 	DLDInfo DualListDecoding_TurboELF(std::vector<double> txSig_1, std::vector<double> txSig_2, unsigned short int* deinterleaver_ptr);
+	DLDInfo DualListDecoding_TurboELF_BAM(std::vector<double> txSig_0, std::vector<double> txSig_1, unsigned short int* interleaver_ptr, unsigned short int* deinterleaver_ptr);
 
 private:
 	std::vector<ListDecoder> list_decoders_;

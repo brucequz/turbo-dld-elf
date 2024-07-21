@@ -327,7 +327,7 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF(std::vector<double> txSig_0, 
           detourTree_0, num_path_searched_0, prev_paths_list_0, trellisInfo_0);
       mi_0.decoder_index = 0;
 
-    
+
       if (!mi_0.listSizeExceeded) {
         // std::cout << "m0 listSize: " << mi_0.listSize << std::endl;
         dual_list_map_.insert(mi_0);
@@ -348,12 +348,162 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF(std::vector<double> txSig_0, 
       }
     }
 
+    // return agreed message if the queue is not empty
     if (dual_list_map_.queue_size() != 0) {
       DLDInfo best_combined = dual_list_map_.pop_queue();
-      // std::cout << "best_combined_list_ranks: "  << best_combined.list_ranks[0] << ", " << best_combined.list_ranks[1] << std::endl;
       return best_combined;
     }
-  }
+  } // end of while loop
+
+  return result;
+}
+
+DLDInfo DualListDecoder::DualListDecoding_TurboELF_BAM(std::vector<double> txSig_0, std::vector<double> txSig_1, unsigned short int* interleaver_ptr, unsigned short int* deinterleaver_ptr) {
+/*
+* This function is the turbo version of the dual list decoder
+
+* Args:
+*       - txSig_1: X_r1 + X_sys
+*       - txSig_2: X_sys + X_r2
+* Output:
+*/
+
+  DLDInfo result;
+  int pathLength = txSig_1.size() + 1;  // FIXME!
+
+
+  // Construct trellis
+  std::vector<std::vector<ListDecoder::cell>> trellisInfo_0;
+  std::vector<std::vector<ListDecoder::cell>> trellisInfo_1;
+
+  trellisInfo_0 = list_decoders_[0].constructOneTrellis(txSig_0);
+  trellisInfo_1 = list_decoders_[1].constructOneTrellis(txSig_1);
+  
+  int num_total_stages_0 = trellisInfo_0[0].size();
+  int num_total_stages_1 = trellisInfo_1[0].size();
+  std::vector<std::vector<int>> prev_paths_list_0;
+  std::vector<std::vector<int>> prev_paths_list_1;
+  minheap* detourTree_0 = new minheap;
+  minheap* detourTree_1 = new minheap;
+
+  // Initialize traceback queue (Detour Tree)
+  for(int i = 0; i <  list_decoders_[0].numStates / 2; i++){
+		DetourObject detour;
+		detour.startingState = i;
+		detour.pathMetric = trellisInfo_0[i][pathLength - 1].pathMetric;
+		detourTree_0->insert(detour);
+	}
+  for(int i = 0; i < list_decoders_[1].numStates / 2; i++){
+		DetourObject detour;
+		detour.startingState = i;
+		detour.pathMetric = trellisInfo_1[i][pathLength - 1].pathMetric;
+		detourTree_1->insert(detour);
+	}
+
+  // continue traceback until the best combined metric is found
+  int num_path_searched_0 = 0;
+  bool decoder_0_stop = false;
+  bool decoder_0_LSE = false;
+
+  int num_path_searched_1 = 0;
+  bool decoder_1_stop = false;
+  bool decoder_1_LSE = false;
+  bool best_combined_found = false;
+
+  DLDInfo best_available;
+  best_available.combined_metric = 1e10;
+  
+  while (!best_combined_found) {
+
+    // check list size exceeded for both decoders 
+    if (num_path_searched_0 >= list_decoders_[0].listSize) { decoder_0_LSE = true;}
+    if (num_path_searched_1 >= list_decoders_[1].listSize) { decoder_1_LSE = true;}
+
+    // check if both decoders have exceeded list size
+    if (decoder_0_LSE && decoder_1_LSE) {break;}
+
+    // decoder 0 traceback
+    if (!decoder_0_stop && !decoder_0_LSE) {
+
+      // operate a single traceback
+      ListDecoder::messageInformation mi_0 = list_decoders_[0].traceback_Single(
+          detourTree_0, num_path_searched_0, prev_paths_list_0, trellisInfo_0);
+      mi_0.decoder_index = 0;
+
+      // std::cout << "printing message 0: ";
+      // print_int_vector(mi_0.message);
+      // std::cout << std::endl;
+
+      if (!mi_0.listSizeExceeded) {
+        // reencode
+        std::vector<int> reencoded_message = trellis_ptrs_[0]->encoder(mi_0.message);
+  
+        // compare with received signal
+        std::vector<double> squared_diff = ComputeSquaredDifferences(reencoded_message, txSig_0);
+        double reencode_metric = std::accumulate(squared_diff.begin(), squared_diff.end(), 0.0);
+        // std::cout << "reencode_metric 0: " << reencode_metric << std::endl;
+        // assert(reencode_metric == 43);
+
+        // update BAM if necessary
+        if (reencode_metric < best_available.combined_metric) {
+          best_available.combined_metric = reencode_metric;
+          best_available.message = reencoded_message;
+          best_available.received_signal = txSig_0;
+        }
+
+        // std::cout << "m0 listSize: " << mi_0.listSize << std::endl;
+        dual_list_map_.insert(mi_0);
+      }
+    }
+
+    // decoder 1 traceback
+    if (!decoder_1_stop && !decoder_1_LSE) {
+
+      // operate a single traceback
+      ListDecoder::messageInformation mi_1 = list_decoders_[1].traceback_deinterleave_Single(
+          detourTree_1, num_path_searched_1, prev_paths_list_1, trellisInfo_1, deinterleaver_ptr);
+      mi_1.decoder_index = 1;
+
+      // std::cout << "printing message 1: ";
+      // print_int_vector(mi_1.message);
+      // std::cout << std::endl;
+
+      if (!mi_1.listSizeExceeded) {
+        // interleave and reencode
+        std::vector<int> interleaved_message;
+        for (int ii = 0; ii < mi_1.message.size(); ii++) {
+          interleaved_message.push_back(mi_1.message[interleaver_ptr[ii]]);
+        }
+        std::vector<int> reencoded_interleaved_message = trellis_ptrs_[1]->encoder(interleaved_message);
+
+        // compute distance metric
+        std::vector<double> squared_diff = ComputeSquaredDifferences(reencoded_interleaved_message, txSig_1);
+        double reencode_metric = std::accumulate(squared_diff.begin(), squared_diff.end(), 0.0);
+        // std::cout << "reencode_metric 1: " << reencode_metric << std::endl;
+        // assert(reencode_metric == 43);
+
+        // update BAM if necessary
+        if (reencode_metric < best_available.combined_metric) {
+          best_available.combined_metric = reencode_metric;
+          best_available.message = mi_1.message;
+          best_available.received_signal = txSig_1;
+        }
+
+        // std::cout << "m1 listSize: " << mi_1.listSize << std::endl;
+        dual_list_map_.insert(mi_1);
+      }
+    }
+
+
+    // return agreed message if the queue is not empty
+    if (dual_list_map_.queue_size() != 0 && best_available.combined_metric > dual_list_map_.get_top().combined_metric) {
+      DLDInfo best_combined = dual_list_map_.pop_queue();
+      return best_combined;
+    } else {
+      std::cout << "returning best available" << std::endl;
+      return best_available;
+    }
+  } // end of while loop
 
   return result;
 }

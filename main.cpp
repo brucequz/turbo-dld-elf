@@ -26,7 +26,7 @@ using namespace std;
 // static std::mt19937 generator {rd()};
 
 int LISTSIZE = 1e3;
-int NUMTRIALS = 1e4;
+int NUMTRIALS = 1000;
 
 static default_random_engine generator;
 
@@ -125,7 +125,7 @@ void elf_turbo_simulation(codeInformation code) {
   // 	deinterleaved_data_vector.push_back(interleaved_data_vector[deinterleaver[i]]);
   // }
 
-  vector<double> SNR = {5};
+  vector<double> SNR = {4};
   // outer loop: SNR
   for (int s = 0; s < SNR.size(); s++) {
     double cur_SNR = SNR[s];
@@ -145,6 +145,10 @@ void elf_turbo_simulation(codeInformation code) {
       }
 
       crc_calculation(original_message, code.crcDeg, code.crc);
+      // std::cout << "original message after crc: ";
+      // print_int_vector(original_message);
+      // std::cout << std::endl;
+
       std::vector<int> encodedMessage =
           encodingTrellis.encoder(original_message);
       // get parity bits
@@ -171,6 +175,22 @@ void elf_turbo_simulation(codeInformation code) {
       }
 
       // add noise
+
+      // std::vector<double> Y_R1;
+      // std::vector<double> Y_R2;
+      // std::vector<double> Y_sys;
+
+      // for (int i = 0; i < X_R1.size(); i++) {
+      //   Y_R1.push_back(static_cast<double>(X_R1[i]));
+      // }
+
+      // for (int i = 0; i < X_R2.size(); i++) {
+      //   Y_R2.push_back(static_cast<double>(X_R2[i]));
+      // }
+
+      // for (int i = 0; i < X_sys.size(); i++) {
+      //   Y_sys.push_back(static_cast<double>(X_sys[i]));
+      // }
       std::vector<double> Y_R1 = addNoise(X_R1, cur_SNR);
       std::vector<double> Y_R2 = addNoise(X_R2, cur_SNR);
       std::vector<double> Y_sys = addNoise(X_sys, cur_SNR);
