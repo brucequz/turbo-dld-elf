@@ -25,8 +25,32 @@ using namespace std;
 // static std::random_device rd {};
 // static std::mt19937 generator {rd()};
 
+namespace{
+
+std::vector<double> ComputeSquaredDifferences(
+    const std::vector<int>& vector1, const std::vector<double>& vector2) {
+  // Check if the vectors have the same size
+  if (vector1.size() != vector2.size()) {
+    // You can handle this error in your preferred way, e.g., throw an exception
+    throw std::invalid_argument("Vectors must have the same size");
+  }
+
+  // Calculate squared differences
+  std::vector<double> squaredDifferences;
+  squaredDifferences.reserve(vector1.size());  // Reserve space for efficiency
+
+  for (std::size_t i = 0; i < vector1.size(); ++i) {
+    double diff = vector1[i] - vector2[i];
+    squaredDifferences.push_back(diff * diff);
+  }
+
+  return squaredDifferences;
+}
+
+}
+
 int LISTSIZE = 1e3;
-int NUMTRIALS = 100000;
+int NUMTRIALS = 1000;
 int MAXERRORS = 100;
 
 static default_random_engine generator;
@@ -126,7 +150,7 @@ void elf_turbo_simulation(codeInformation code) {
   // 	deinterleaved_data_vector.push_back(interleaved_data_vector[deinterleaver[i]]);
   // }
 
-  vector<double> SNR = {4, 4.5};
+  vector<double> SNR = {4};
   // outer loop: SNR
   for (int s = 0; s < SNR.size(); s++) {
     double cur_SNR = SNR[s];
@@ -210,8 +234,27 @@ void elf_turbo_simulation(codeInformation code) {
         pi_Y_sys.push_back(Y_sys[interleaver[ii]]);
       }
 
-      // Y_R1.insert(Y_R1.begin(), Y_sys.begin(), Y_sys.end());
-      // Y_R2.insert(Y_R2.begin(), pi_Y_sys.begin(), pi_Y_sys.end());
+      // std::vector<double> squaredDifference_R1(X_R1.size());
+      // std::vector<double> squaredDifference_R2(X_R2.size());
+      // std::vector<double> squaredDifference_sys(X_sys.size());
+
+      // for (int i = 0; i < X_R1.size(); i++) {
+      //   squaredDifference_R1[i] = pow(X_R1[i] - Y_R1[i], 2);
+      // }
+      // double R1_squraed_diff = std::accumulate(squaredDifference_R1.begin(), squaredDifference_R1.end(), 0.0);
+
+      // for (int i = 0; i < X_R2.size(); i++) {
+      //   squaredDifference_R2[i] = pow(X_R2[i] - Y_R2[i], 2);
+      // }
+      // double R2_squraed_diff = std::accumulate(squaredDifference_R2.begin(), squaredDifference_R2.end(), 0.0);
+
+      // for (int i = 0; i < X_sys.size(); i++) {
+      //   squaredDifference_sys[i] = pow(X_sys[i] - Y_sys[i], 2);
+      // }
+      // double sys_squraed_diff = std::accumulate(squaredDifference_sys.begin(), squaredDifference_sys.end(), 0.0);
+
+      // double sum_squared_diff = R1_squraed_diff + R2_squraed_diff + sys_squraed_diff;
+      // std::cout << "sum squared diff: " << sum_squared_diff << std::endl;
 
       std::vector<double> DLD_R1;
       std::vector<double> DLD_R2;

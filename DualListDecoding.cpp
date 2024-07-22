@@ -159,6 +159,7 @@ ListDecoder::messageInformation ListDecoder::traceback_Single(minheap* detourTre
 
     // one trellis decoding requires both a tb and crc check
     if (path[0] == path[pathLength - 1] && crc_check(message, crcDegree, crc)) {
+      mi.metric = forwardPartialPathMetric;
       mi.message = message;
       mi.path = path;
       mi.listSize = numPathsSearched + 1;
@@ -371,7 +372,6 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF_BAM(std::vector<double> txSig
   DLDInfo result;
   int pathLength = txSig_1.size() + 1;  // FIXME!
 
-
   // Construct trellis
   std::vector<std::vector<ListDecoder::cell>> trellisInfo_0;
   std::vector<std::vector<ListDecoder::cell>> trellisInfo_1;
@@ -419,9 +419,6 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF_BAM(std::vector<double> txSig
     if (num_path_searched_0 >= list_decoders_[0].listSize) { decoder_0_LSE = true;}
     if (num_path_searched_1 >= list_decoders_[1].listSize) { decoder_1_LSE = true;}
 
-    // check if both decoders have exceeded list size
-    if (decoder_0_LSE && decoder_1_LSE) {break;}
-
     // decoder 0 traceback
     if (!decoder_0_stop && !decoder_0_LSE) {
 
@@ -430,9 +427,7 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF_BAM(std::vector<double> txSig
           detourTree_0, num_path_searched_0, prev_paths_list_0, trellisInfo_0);
       mi_0.decoder_index = 0;
 
-      // std::cout << "printing message 0: ";
-      // print_int_vector(mi_0.message);
-      // std::cout << std::endl;
+      // std::cout << "mi_0 metric: " << mi_0.metric << std::endl;
 
       if (!mi_0.listSizeExceeded) {
         // reencode
@@ -480,8 +475,15 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF_BAM(std::vector<double> txSig
         std::vector<double> squared_diff = ComputeSquaredDifferences(reencoded_interleaved_message, txSig_1);
         double reencode_metric = std::accumulate(squared_diff.begin(), squared_diff.end(), 0.0);
         // std::cout << "reencode_metric 1: " << reencode_metric << std::endl;
-        // assert(reencode_metric == 43);
 
+        for (int i = 0; i < reencoded_interleaved_message.size(); i+=2) {
+          txSig_1[i+1] = reencoded_interleaved_message[i+1];
+        }
+
+        squared_diff = ComputeSquaredDifferences(reencoded_interleaved_message, txSig_1);
+        reencode_metric = std::accumulate(squared_diff.begin(), squared_diff.end(), 0.0);
+        // std::cout << "reencode_metric 1: " << reencode_metric << std::endl;
+        
         // update BAM if necessary
         if (reencode_metric < best_available.combined_metric) {
           best_available.combined_metric = reencode_metric;
@@ -496,11 +498,16 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF_BAM(std::vector<double> txSig
 
 
     // return agreed message if the queue is not empty
-    if (dual_list_map_.queue_size() != 0 && best_available.combined_metric > dual_list_map_.get_top().combined_metric) {
+    // check if both decoders have exceeded list size
+    if (dual_list_map_.queue_size() != 0 && best_available.combined_metric >= dual_list_map_.get_top().combined_metric) {
       DLDInfo best_combined = dual_list_map_.pop_queue();
+      // std::cout << "returning best combined" << std::endl;
       return best_combined;
-    } else {
-      // std::cout << "returning best available" << std::endl;
+    } else if (dual_list_map_.queue_size() != 0 && best_available.combined_metric < dual_list_map_.get_top().combined_metric) {
+      // std::cout << "reuse best available" << std::endl;
+      // std::cout << "best available metric: " << best_available.combined_metric << std::endl;
+      return best_available;
+    } else if (decoder_0_LSE && decoder_1_LSE) {
       return best_available;
     }
   } // end of while loop
