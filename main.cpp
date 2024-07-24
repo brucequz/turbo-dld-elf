@@ -49,8 +49,8 @@ std::vector<double> ComputeSquaredDifferences(
 
 }
 
-int LISTSIZE = 1e3;
-int NUMTRIALS = 1000;
+int LISTSIZE = 5e3;
+int NUMTRIALS = 100000;
 int MAXERRORS = 100;
 
 static default_random_engine generator;
@@ -150,7 +150,11 @@ void elf_turbo_simulation(codeInformation code) {
   // 	deinterleaved_data_vector.push_back(interleaved_data_vector[deinterleaver[i]]);
   // }
 
-  vector<double> SNR = {4};
+  vector<double> SNR = {3, 3.5, 4, 4.5};
+  int default_cnt        = 0;
+  int agreed_cnt         = 0;
+  int best_available_cnt = 0;
+
   // outer loop: SNR
   for (int s = 0; s < SNR.size(); s++) {
     double cur_SNR = SNR[s];
@@ -169,9 +173,6 @@ void elf_turbo_simulation(codeInformation code) {
       }
 
       crc_calculation(original_message, code.crcDeg, code.crc);
-      // std::cout << "original message after crc: ";
-      // print_int_vector(original_message);
-      // std::cout << std::endl;
 
       std::vector<int> encodedMessage =
           encodingTrellis.encoder(original_message);
@@ -192,11 +193,14 @@ void elf_turbo_simulation(codeInformation code) {
       // encode interleaved message
       std::vector<int> encodedMessage_inter =
           encodingTrellis.encoder(pi_original_message);
+
       // get parity bits
       std::vector<int> X_R2;
       for (int j = 0; j < encodedMessage_inter.size(); j += 2) {
         X_R2.push_back(encodedMessage_inter[j]);
       }
+
+
 
       // add noise
 
@@ -215,9 +219,14 @@ void elf_turbo_simulation(codeInformation code) {
       // for (int i = 0; i < X_sys.size(); i++) {
       //   Y_sys.push_back(static_cast<double>(X_sys[i]));
       // }
-      std::vector<double> Y_R1 = addNoise(X_R1, cur_SNR);
-      std::vector<double> Y_R2 = addNoise(X_R2, cur_SNR);
+      std::vector<double> Y_R1  = addNoise(X_R1, cur_SNR);
+      std::vector<double> Y_R2  = addNoise(X_R2, cur_SNR);
       std::vector<double> Y_sys = addNoise(X_sys, cur_SNR);
+
+      // if (numtrial >= 1) {
+      //   numerror = MAXERRORS;
+      //   continue;
+      // }
 
       // puncture both parity sequences
       for (int p = 0; p < Y_R1.size(); p++) {
@@ -242,16 +251,19 @@ void elf_turbo_simulation(codeInformation code) {
       //   squaredDifference_R1[i] = pow(X_R1[i] - Y_R1[i], 2);
       // }
       // double R1_squraed_diff = std::accumulate(squaredDifference_R1.begin(), squaredDifference_R1.end(), 0.0);
+      // std::cout << "R1 squared diff: " << R1_squraed_diff << std::endl;
 
       // for (int i = 0; i < X_R2.size(); i++) {
       //   squaredDifference_R2[i] = pow(X_R2[i] - Y_R2[i], 2);
       // }
       // double R2_squraed_diff = std::accumulate(squaredDifference_R2.begin(), squaredDifference_R2.end(), 0.0);
+      // std::cout << "R2 squared diff: " << R2_squraed_diff << std::endl;
 
       // for (int i = 0; i < X_sys.size(); i++) {
       //   squaredDifference_sys[i] = pow(X_sys[i] - Y_sys[i], 2);
       // }
       // double sys_squraed_diff = std::accumulate(squaredDifference_sys.begin(), squaredDifference_sys.end(), 0.0);
+      // std::cout << "sys squared diff: " << sys_squraed_diff << std::endl;
 
       // double sum_squared_diff = R1_squraed_diff + R2_squraed_diff + sys_squraed_diff;
       // std::cout << "sum squared diff: " << sum_squared_diff << std::endl;
@@ -272,7 +284,19 @@ void elf_turbo_simulation(codeInformation code) {
       DualListDecoder DLD(codeList, LISTSIZE);
       DLDInfo result =
           DLD.DualListDecoding_TurboELF_BAM(DLD_R1, DLD_R2, interleaver, deinterleaver);
+
+      if (result.return_type == "default") {
+        default_cnt++;
+      } else if (result.return_type == "agreed") {
+        agreed_cnt++;
+      } else if (result.return_type == "best_available") {
+        best_available_cnt++;
+      }
+
       numtrial++;
+      assert(default_cnt + agreed_cnt + best_available_cnt == numtrial);
+
+      
 
       // std::cout << "result list size: ";
       // print_int_vector(result.list_ranks);
@@ -280,11 +304,14 @@ void elf_turbo_simulation(codeInformation code) {
 
 			if (result.message.size() != original_message.size() || result.message != original_message) {
 				numerror++;
+        std::cout << "error at trial: " << numtrial << std::endl;
+        std::cout << "error return type: " << result.return_type << std::endl;
 			}
 		}
 
 		std::cout << "For SNR = " << cur_SNR << ", number of trials: " << numtrial << ", number of errors: " << numerror << std::endl;
 		std::cout << "FER: " << (double)numerror / numtrial << std::endl;
+    std::cout << "default: " << default_cnt << ", agreed: " << agreed_cnt << ", best_available: " << best_available_cnt << std::endl;
   }
 }
 

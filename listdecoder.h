@@ -4,6 +4,7 @@
 #include <queue>
 #include <map>
 #include <vector>
+#include <string>
 
 #include "dualtrellis.h"
 #include "crc_search_functions.h"
@@ -102,6 +103,7 @@ struct DLDInfo {
 	std::vector<int> message;
 	std::vector<int> list_ranks;
 	std::vector<double> received_signal;
+	std::string return_type;
 };
 
 class DualListDecoder{
