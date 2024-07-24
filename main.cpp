@@ -151,9 +151,7 @@ void elf_turbo_simulation(codeInformation code) {
   // }
 
   vector<double> SNR = {3, 3.5, 4, 4.5};
-  int default_cnt        = 0;
-  int agreed_cnt         = 0;
-  int best_available_cnt = 0;
+
 
   // outer loop: SNR
   for (int s = 0; s < SNR.size(); s++) {
@@ -161,6 +159,9 @@ void elf_turbo_simulation(codeInformation code) {
 
     int numerror = 0;
     int numtrial = 0;
+    int default_cnt        = 0;
+    int agreed_cnt         = 0;
+    int best_available_cnt = 0;
     // inner loop: MC trials
     while (numerror < MAXERRORS && numtrial < NUMTRIALS) {
 
