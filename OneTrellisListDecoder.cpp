@@ -25,10 +25,10 @@ ListDecoder::constructOneTrellis(std::vector<double> receivedMessage) {
                                                         std::vector<double>(2));
 
   
-
   for (int stage = 0; stage < receivedMessage.size(); stage++) {
     // precomputedMetrics[stage][0] = std::abs(receivedMessage[stage] - 1);
     // precomputedMetrics[stage][1] = std::abs(receivedMessage[stage] + 1);
+    
     precomputedMetrics[stage][0] = std::pow(receivedMessage[stage] - 1, 2);
     precomputedMetrics[stage][1] = std::pow(receivedMessage[stage] + 1, 2);
   }
@@ -84,6 +84,92 @@ ListDecoder::constructOneTrellis(std::vector<double> receivedMessage) {
 
   return trellisInfo;
 }
+
+
+std::vector<std::vector<ListDecoder::cell>>
+ListDecoder::constructOneTrellis_SetPunctureZero(std::vector<double> receivedMessage, std::vector<int> punc_idx) {
+
+  pathLength = receivedMessage.size() + 1;
+  std::vector<std::vector<cell>> trellisInfo;
+  trellisInfo =
+      std::vector<std::vector<cell>>(numStates, std::vector<cell>(pathLength));
+
+  // initializes all the valid starting states
+  for (int i = 0; i < numStates / 2; i++) {
+    trellisInfo[i][0].pathMetric = 0;
+    trellisInfo[i][0].init = true;
+  }
+
+  // precomputing euclidean distance between the received signal and +/- 1
+  std::vector<std::vector<double>> precomputedMetrics;
+  precomputedMetrics = std::vector<std::vector<double>>(receivedMessage.size(),
+                                                        std::vector<double>(2));
+
+  
+  for (int stage = 0; stage < receivedMessage.size(); stage++) {
+    // the punctured redundancy bits are located at the even stages
+    // if the stage is punctured, we set the precomputed metrics to 0
+    if (stage % 2 == 0 && std::find(punc_idx.begin(), punc_idx.end(), stage/2) != punc_idx.end()){
+      precomputedMetrics[stage][0] = 0;
+      precomputedMetrics[stage][1] = 0;
+    } else {
+      precomputedMetrics[stage][0] = std::pow(receivedMessage[stage] - 1, 2);
+      precomputedMetrics[stage][1] = std::pow(receivedMessage[stage] + 1, 2);
+    }
+  }
+
+
+  // building the trellis
+  for (int stage = 0; stage < receivedMessage.size(); stage++) {
+    for (int currentState = 0; currentState < numStates; currentState++) {
+      // if the state / stage is invalid, we move on
+      if (!trellisInfo[currentState][stage].init)
+        continue;
+
+      // otherwise, we compute the relevent information
+      for (int forwardPathIndex = 0; forwardPathIndex < numForwardPaths;
+           forwardPathIndex++) {
+        // note that the forwardPathIndex is also the bit that corresponds with
+        // the trellis transition
+
+        int nextState = nextStates[currentState][stage % numTrellisSegLength]
+                                  [forwardPathIndex];
+
+        // if the nextState is invalid, we move on
+        if (nextState < 0)
+          continue;
+
+        double totalPathMetric = precomputedMetrics[stage][forwardPathIndex] +
+                                 trellisInfo[currentState][stage].pathMetric;
+
+        // dealing with cases of uninitialized states, when the transition
+        // becomes the optimal father state, and suboptimal father state, in
+        // order
+        if (!trellisInfo[nextState][stage + 1].init) {
+          trellisInfo[nextState][stage + 1].pathMetric = totalPathMetric;
+          trellisInfo[nextState][stage + 1].optimalFatherState = currentState;
+          trellisInfo[nextState][stage + 1].init = true;
+        } else if (trellisInfo[nextState][stage + 1].pathMetric >
+                   totalPathMetric) {
+          trellisInfo[nextState][stage + 1].suboptimalPathMetric =
+              trellisInfo[nextState][stage + 1].pathMetric;
+          trellisInfo[nextState][stage + 1].suboptimalFatherState =
+              trellisInfo[nextState][stage + 1].optimalFatherState;
+          trellisInfo[nextState][stage + 1].pathMetric = totalPathMetric;
+          trellisInfo[nextState][stage + 1].optimalFatherState = currentState;
+        } else {
+          trellisInfo[nextState][stage + 1].suboptimalPathMetric =
+              totalPathMetric;
+          trellisInfo[nextState][stage + 1].suboptimalFatherState =
+              currentState;
+        }
+      }
+    }
+  }
+
+  return trellisInfo;
+}
+
 
 ListDecoder::messageInformation
 ListDecoder::oneTrellisDecoding(std::vector<double> receivedMessage) {

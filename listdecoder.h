@@ -89,6 +89,8 @@ protected:
 
 	std::vector<std::vector<cell>> constructOneTrellis(std::vector<double> receivedMessage);
 
+	std::vector<std::vector<cell>> constructOneTrellis_SetPunctureZero(std::vector<double> receivedMessage, std::vector<int> punc_idx);
+
 	std::vector<std::vector<cell>> constructWAVATrellis(std::vector<double> receivedMessage, std::vector<std::vector<cell>> oneTrellis);
 
 	std::vector<std::vector<cell>> constructZTTrellis(std::vector<double> receivedMessage);
@@ -108,7 +110,7 @@ struct DLDInfo {
 
 class DualListDecoder{
 public:
-	DualListDecoder(std::vector<codeInformation> code_info, int listSize);
+	DualListDecoder(std::vector<codeInformation> code_info, int listSize, std::vector<int> punc_idx);
 	~DualListDecoder();
 
 	struct CompareCombinedMetric {
@@ -146,7 +148,7 @@ private:
 	std::vector<ListDecoder> list_decoders_;
 	std::vector<FeedbackTrellis*> trellis_ptrs_; 
 	DualListMap dual_list_map_;
-
+	std::vector<int> punc_idx_;
 };
 
 #endif

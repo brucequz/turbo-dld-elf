@@ -50,7 +50,7 @@ std::vector<double> ComputeSquaredDifferences(
 }
 
 int LISTSIZE = 5e3;
-int NUMTRIALS = 100000;
+int NUMTRIALS =10000;
 int MAXERRORS = 100;
 
 static default_random_engine generator;
@@ -150,7 +150,7 @@ void elf_turbo_simulation(codeInformation code) {
   // 	deinterleaved_data_vector.push_back(interleaved_data_vector[deinterleaver[i]]);
   // }
 
-  vector<double> SNR = {3, 3.5, 4, 4.5};
+  vector<double> SNR = {4};
 
 
   // outer loop: SNR
@@ -224,11 +224,6 @@ void elf_turbo_simulation(codeInformation code) {
       std::vector<double> Y_R2  = addNoise(X_R2, cur_SNR);
       std::vector<double> Y_sys = addNoise(X_sys, cur_SNR);
 
-      // if (numtrial >= 1) {
-      //   numerror = MAXERRORS;
-      //   continue;
-      // }
-
       // puncture both parity sequences
       for (int p = 0; p < Y_R1.size(); p++) {
         for (int q = 0; q < punc_idx.size(); q++) {
@@ -249,13 +244,17 @@ void elf_turbo_simulation(codeInformation code) {
       // std::vector<double> squaredDifference_sys(X_sys.size());
 
       // for (int i = 0; i < X_R1.size(); i++) {
-      //   squaredDifference_R1[i] = pow(X_R1[i] - Y_R1[i], 2);
+      //   squaredDifference_R1[i] = (std::find(punc_idx.begin(), punc_idx.end(), i) == punc_idx.end()) 
+      //                             ? pow(X_R1[i] - Y_R1[i], 2) 
+      //                             : 0;
       // }
       // double R1_squraed_diff = std::accumulate(squaredDifference_R1.begin(), squaredDifference_R1.end(), 0.0);
       // std::cout << "R1 squared diff: " << R1_squraed_diff << std::endl;
 
       // for (int i = 0; i < X_R2.size(); i++) {
-      //   squaredDifference_R2[i] = pow(X_R2[i] - Y_R2[i], 2);
+      //   squaredDifference_R2[i] = (std::find(punc_idx.begin(), punc_idx.end(), i) == punc_idx.end()) 
+      //                             ? pow(X_R2[i] - Y_R2[i], 2) 
+      //                             : 0;
       // }
       // double R2_squraed_diff = std::accumulate(squaredDifference_R2.begin(), squaredDifference_R2.end(), 0.0);
       // std::cout << "R2 squared diff: " << R2_squraed_diff << std::endl;
@@ -282,7 +281,7 @@ void elf_turbo_simulation(codeInformation code) {
       }
 
       std::vector<codeInformation> codeList = {code, code};
-      DualListDecoder DLD(codeList, LISTSIZE);
+      DualListDecoder DLD(codeList, LISTSIZE, punc_idx);
       DLDInfo result =
           DLD.DualListDecoding_TurboELF_BAM(DLD_R1, DLD_R2, interleaver, deinterleaver);
 

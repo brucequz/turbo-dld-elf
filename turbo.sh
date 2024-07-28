@@ -1,5 +1,7 @@
 #!/bin/bash
 
+clear
+
 # Compile the program
 clang++ *.cpp -std=c++14 -o turbo -O2
 
