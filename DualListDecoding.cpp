@@ -84,14 +84,7 @@ void DualListDecoder::DualListMap::insert(const ListDecoder::messageInformation&
   // if agreed message is found
   if (it != dual_list_map_.end()) {
     DLDInfo agreed_message;
-    agreed_message.combined_metric = mi.metric;
-    if (it->second.decoder_index == 0) {
-      agreed_message.list_ranks = {it->second.listSize, mi.listSize};
-    } else if (it->second.decoder_index == 1) {
-      agreed_message.list_ranks = {mi.listSize, it->second.listSize};
-    } else {
-      std::cerr << "Invalid decoder order" << std::endl;
-    }
+    agreed_message.combined_metric = mi.full_metric;
     agreed_message.message = mi.message;
     agreed_messages_.push(agreed_message);
     dual_list_map_.erase(mi.message);
@@ -343,7 +336,7 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF_BAM(std::vector<double> txSig
   best_available.return_type = "best_available";
   
   while (!best_combined_found) {
-
+    
     // check list size exceeded for both decoders 
     if (num_path_searched_0 >= list_decoders_[0].listSize) {decoder_0_LSE = true;}
     if (num_path_searched_1 >= list_decoders_[1].listSize) {decoder_1_LSE = true;}
@@ -376,15 +369,15 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF_BAM(std::vector<double> txSig
         double reproduced_R2_metrics = std::accumulate(squared_diff.begin(), squared_diff.end(), 0.0);
 
         // Compute the full metric
-        mi_0.metric += reproduced_R2_metrics;
-
-        // std::cout << "mi_0 metric + R2 metric: " << mi_0.metric << std::endl;
+        mi_0.full_metric = mi_0.metric + reproduced_R2_metrics;
 
         // Update BAM if necessary
-        if (mi_0.metric < best_available.combined_metric) {
-          best_available.combined_metric = mi_0.metric;
+        if (mi_0.full_metric < best_available.combined_metric) {
+          best_available.combined_metric = mi_0.full_metric;
+          best_available.discovered_decoder_idx = 0;
+          best_available.discovered_partial_metric = mi_0.metric;
           best_available.message = mi_0.message;
-          best_available.received_signal = txSig_0;
+          best_available.undiscovered_partial_metric = reproduced_R2_metrics;
         }
 
         // Insert into the dictionary
@@ -414,15 +407,15 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF_BAM(std::vector<double> txSig
         double reproduced_R1_metrics = std::accumulate(squared_diff.begin(), squared_diff.end(), 0.0);
 
         // Compute the full metric
-        mi_1.metric += reproduced_R1_metrics;
-
-        // std::cout << "mi_1 metric + R1 metric: " << mi_1.metric << std::endl;
+        mi_1.full_metric = mi_1.metric + reproduced_R1_metrics;
 
         // Update BAM if necessary
-        if (mi_1.metric < best_available.combined_metric) {
-          best_available.combined_metric = mi_1.metric;
+        if (mi_1.full_metric < best_available.combined_metric) {
+          best_available.combined_metric = mi_1.full_metric;
+          best_available.discovered_decoder_idx = 1;
+          best_available.discovered_partial_metric = mi_1.metric;
           best_available.message = mi_1.message;
-          best_available.received_signal = txSig_0;
+          best_available.undiscovered_partial_metric = reproduced_R1_metrics;
         }
 
         // Insert into the dictionary
@@ -453,7 +446,18 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF_BAM(std::vector<double> txSig
 
     } else if (decoder_0_LSE && decoder_1_LSE) {
       // std::cout << "best combined NOT found but returning best available" << std::endl;
-      return best_available;
+      if (best_available.undiscovered_partial_metric > 0.5 * best_available.discovered_partial_metric) {
+        // set list size to be 2 times the previous list size
+        list_decoders_[0].listSize += 2000;
+        list_decoders_[1].listSize += 2000;
+
+        decoder_0_LSE = false;
+        decoder_1_LSE = false;
+
+        continue;
+      } else {
+        return best_available;
+      }
     }
   } // end of while loop
 

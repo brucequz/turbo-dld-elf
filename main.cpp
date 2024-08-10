@@ -8,6 +8,7 @@
 #include <random>
 #include <sstream>
 #include <time.h>
+#include <tuple>
 #include <vector>
 using namespace std;
 #include "GaloisField.h"
@@ -49,8 +50,8 @@ std::vector<double> ComputeSquaredDifferences(
 
 }
 
-int LISTSIZE = 5e3;
-int NUMTRIALS =10000;
+int LISTSIZE  = 1e4;
+int NUMTRIALS = 50000;
 int MAXERRORS = 100;
 
 static default_random_engine generator;
@@ -122,6 +123,10 @@ int main() {
 }
 
 void elf_turbo_simulation(codeInformation code) {
+
+  std::ofstream outFile;
+  outFile.open("./output/output.txt");
+
   int Km = code.numInfoBits + code.crcDeg - 1; // 71
 
   // puncture 43 bits to achieve overall rate-1/2 when m=7
@@ -145,13 +150,7 @@ void elf_turbo_simulation(codeInformation code) {
     deinterleaver[interleaver[i]] = i;
   }
 
-  // std::vector<int> deinterleaved_data_vector; // deinterleave example
-  // for (int i = 0; i < Km*2; i++) {
-  // 	deinterleaved_data_vector.push_back(interleaved_data_vector[deinterleaver[i]]);
-  // }
-
-  vector<double> SNR = {4};
-
+  vector<double> SNR = {3.0};
 
   // outer loop: SNR
   for (int s = 0; s < SNR.size(); s++) {
@@ -162,6 +161,9 @@ void elf_turbo_simulation(codeInformation code) {
     int default_cnt        = 0;
     int agreed_cnt         = 0;
     int best_available_cnt = 0;
+    std::vector<double> metric_error_diff = {};
+
+    std::tuple<int, int , int> error_counts = {0, 0, 0};
     // inner loop: MC trials
     while (numerror < MAXERRORS && numtrial < NUMTRIALS) {
 
@@ -224,6 +226,7 @@ void elf_turbo_simulation(codeInformation code) {
       std::vector<double> Y_R2  = addNoise(X_R2, cur_SNR);
       std::vector<double> Y_sys = addNoise(X_sys, cur_SNR);
 
+
       // puncture both parity sequences
       for (int p = 0; p < Y_R1.size(); p++) {
         for (int q = 0; q < punc_idx.size(); q++) {
@@ -239,34 +242,30 @@ void elf_turbo_simulation(codeInformation code) {
         pi_Y_sys.push_back(Y_sys[interleaver[ii]]);
       }
 
-      // std::vector<double> squaredDifference_R1(X_R1.size());
-      // std::vector<double> squaredDifference_R2(X_R2.size());
-      // std::vector<double> squaredDifference_sys(X_sys.size());
+      std::vector<double> squaredDifference_R1(X_R1.size());
+      std::vector<double> squaredDifference_R2(X_R2.size());
+      std::vector<double> squaredDifference_sys(X_sys.size());
 
-      // for (int i = 0; i < X_R1.size(); i++) {
-      //   squaredDifference_R1[i] = (std::find(punc_idx.begin(), punc_idx.end(), i) == punc_idx.end()) 
-      //                             ? pow(X_R1[i] - Y_R1[i], 2) 
-      //                             : 0;
-      // }
-      // double R1_squraed_diff = std::accumulate(squaredDifference_R1.begin(), squaredDifference_R1.end(), 0.0);
-      // std::cout << "R1 squared diff: " << R1_squraed_diff << std::endl;
+      for (int i = 0; i < X_R1.size(); i++) {
+        squaredDifference_R1[i] = (std::find(punc_idx.begin(), punc_idx.end(), i) == punc_idx.end()) 
+                                  ? pow(X_R1[i] - Y_R1[i], 2) 
+                                  : 0;
+      }
+      double R1_squraed_diff = std::accumulate(squaredDifference_R1.begin(), squaredDifference_R1.end(), 0.0);
 
-      // for (int i = 0; i < X_R2.size(); i++) {
-      //   squaredDifference_R2[i] = (std::find(punc_idx.begin(), punc_idx.end(), i) == punc_idx.end()) 
-      //                             ? pow(X_R2[i] - Y_R2[i], 2) 
-      //                             : 0;
-      // }
-      // double R2_squraed_diff = std::accumulate(squaredDifference_R2.begin(), squaredDifference_R2.end(), 0.0);
-      // std::cout << "R2 squared diff: " << R2_squraed_diff << std::endl;
-
-      // for (int i = 0; i < X_sys.size(); i++) {
-      //   squaredDifference_sys[i] = pow(X_sys[i] - Y_sys[i], 2);
-      // }
-      // double sys_squraed_diff = std::accumulate(squaredDifference_sys.begin(), squaredDifference_sys.end(), 0.0);
-      // std::cout << "sys squared diff: " << sys_squraed_diff << std::endl;
-
-      // double sum_squared_diff = R1_squraed_diff + R2_squraed_diff + sys_squraed_diff;
-      // std::cout << "sum squared diff: " << sum_squared_diff << std::endl;
+      for (int i = 0; i < X_R2.size(); i++) {
+        squaredDifference_R2[i] = (std::find(punc_idx.begin(), punc_idx.end(), i) == punc_idx.end()) 
+                                  ? pow(X_R2[i] - Y_R2[i], 2) 
+                                  : 0;
+      }
+      double R2_squraed_diff = std::accumulate(squaredDifference_R2.begin(), squaredDifference_R2.end(), 0.0);
+      
+      for (int i = 0; i < X_sys.size(); i++) {
+        squaredDifference_sys[i] = pow(X_sys[i] - Y_sys[i], 2);
+      }
+      double sys_squraed_diff = std::accumulate(squaredDifference_sys.begin(), squaredDifference_sys.end(), 0.0);
+      
+      double sum_squared_diff = R1_squraed_diff + R2_squraed_diff + sys_squraed_diff;
 
       std::vector<double> DLD_R1;
       std::vector<double> DLD_R2;
@@ -285,6 +284,7 @@ void elf_turbo_simulation(codeInformation code) {
       DLDInfo result =
           DLD.DualListDecoding_TurboELF_BAM(DLD_R1, DLD_R2, interleaver, deinterleaver);
 
+      // process return type
       if (result.return_type == "default") {
         default_cnt++;
       } else if (result.return_type == "agreed") {
@@ -296,23 +296,54 @@ void elf_turbo_simulation(codeInformation code) {
       numtrial++;
       assert(default_cnt + agreed_cnt + best_available_cnt == numtrial);
 
-      
-
-      // std::cout << "result list size: ";
-      // print_int_vector(result.list_ranks);
-      // std::cout << std::endl;
-
-			if (result.message.size() != original_message.size() || result.message != original_message) {
+      if (result.message.size() == original_message.size() && result.message == original_message) {
+        assert(std::fabs(result.combined_metric - sum_squared_diff) < 0.0001);
+      } else if (result.message.size() != original_message.size() || result.message != original_message) {
 				numerror++;
-        std::cout << "error at trial: " << numtrial << std::endl;
-        std::cout << "error return type: " << result.return_type << std::endl;
-			}
-		}
+        assert(result.combined_metric - sum_squared_diff > 0.0001);
+        metric_error_diff.push_back(result.combined_metric - sum_squared_diff);
+        if (result.return_type == "default") {
+          std::get<0>(error_counts)++;
+        } else if (result.return_type == "agreed") {
+          std::get<1>(error_counts)++;
+        } else if (result.return_type == "best_available") {
+          std::get<2>(error_counts)++;
+        }
+
+        if (outFile.is_open()) {
+          outFile << "//////// ERROR EVENT ///////// " << std::endl;
+          outFile << "SNR: " << cur_SNR << " , max list size: " << LISTSIZE << std::endl;
+          outFile << "trial number: " << numtrial << std::endl;
+          outFile << "error type: "   << result.return_type << std::endl;
+          outFile << "return metric: "<< result.combined_metric << ", found at: ";
+          if (result.return_type == "best_available") {
+            outFile << "discovered decoder: " << result.discovered_decoder_idx << ", partial metric: " << result.discovered_partial_metric << std::endl;
+            outFile << "undiscovered metric: " << result.undiscovered_partial_metric << std::endl;
+          }
+          outFile << "true metric: "  << R1_squraed_diff << " + " << sys_squraed_diff
+                                      << " + " << R2_squraed_diff
+                                      << " -> " << sum_squared_diff << std::endl;
+          outFile << std::endl;
+        } else {
+          std::cerr << "Unable to open file" << std::endl;
+        }
+        
+			} else {
+        std::cout << "error in error counting" << std::endl;
+      }
+		}//while (numerror < MAXERRORS && numtrial < NUMTRIALS) 
 
 		std::cout << "For SNR = " << cur_SNR << ", number of trials: " << numtrial << ", number of errors: " << numerror << std::endl;
 		std::cout << "FER: " << (double)numerror / numtrial << std::endl;
     std::cout << "default: " << default_cnt << ", agreed: " << agreed_cnt << ", best_available: " << best_available_cnt << std::endl;
-  }
+    std::cout << "default error: " << std::get<0>(error_counts) << ", agreed error: " << std::get<1>(error_counts) << ", best_available error: " << std::get<2>(error_counts) << std::endl;
+
+    std::cout << "printing metric error difference: ";
+    print_double_vector(metric_error_diff);
+    std::cout << std::endl;
+  }//for (int s = 0; s < SNR.size(); s++)
+
+  outFile.close();
 }
 
 void IRWEFdistribution(codeInformation code) {

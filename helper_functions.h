@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include <iostream>
+#include <fstream>
 
 // binary sum, used in crc_check
 static int bin_sum(int i, int j) {
@@ -83,6 +84,16 @@ static void print_int_vector(std::vector<int> vector){
 		std::cout << vector[i] << ", ";
 	}
 	std::cout << vector[vector.size() - 1] << std::endl;
+}
+
+// outputs a vector of ints to a file
+static void output_int_vector(std::vector<int> vector, std::ofstream& file){
+	if(vector.size() == 0)
+		return;
+	for(int i = 0; i < vector.size() - 1; i++){
+		file << vector[i] << ", ";
+	}
+	file << vector[vector.size() - 1] << std::endl;
 }
 
 // converts decimal output to n-bit BPSK

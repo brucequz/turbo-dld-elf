@@ -40,6 +40,7 @@ public:
 		int listSize;
 		bool listSizeExceeded;
 		double metric;
+		double full_metric;
 		int decoder_index;
 	};
 
@@ -101,11 +102,13 @@ protected:
 };
 
 struct DLDInfo {
+	DLDInfo(): combined_metric(0.0), discovered_decoder_idx(-1), discovered_partial_metric(-1.0) {};
+	int discovered_decoder_idx;
+	double discovered_partial_metric;
+	double undiscovered_partial_metric;
 	double combined_metric;
-	std::vector<int> message;
-	std::vector<int> list_ranks;
-	std::vector<double> received_signal;
 	std::string return_type;
+	std::vector<int> message;
 };
 
 class DualListDecoder{
