@@ -378,6 +378,8 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF_BAM(std::vector<double> txSig
           best_available.discovered_partial_metric = mi_0.metric;
           best_available.message = mi_0.message;
           best_available.undiscovered_partial_metric = reproduced_R2_metrics;
+          best_available.list_ranks[0] = mi_0.listSize;
+          best_available.list_ranks[1] = -1;
         }
 
         // Insert into the dictionary
@@ -416,6 +418,8 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF_BAM(std::vector<double> txSig
           best_available.discovered_partial_metric = mi_1.metric;
           best_available.message = mi_1.message;
           best_available.undiscovered_partial_metric = reproduced_R1_metrics;
+          best_available.list_ranks[0] = -1;
+          best_available.list_ranks[1] = mi_1.listSize;
         }
 
         // Insert into the dictionary
@@ -441,12 +445,12 @@ DLDInfo DualListDecoder::DualListDecoding_TurboELF_BAM(std::vector<double> txSig
         std::cout << "best available metric: " << best_available.combined_metric << std::endl;
         std::cout << "metric difference: " << dual_list_map_.get_top().combined_metric - best_available.combined_metric << std::endl;
       }
-
+    
       return best_available;
 
     } else if (decoder_0_LSE && decoder_1_LSE) {
       // std::cout << "best combined NOT found but returning best available" << std::endl;
-      if (best_available.undiscovered_partial_metric > 0.5 * best_available.discovered_partial_metric) {
+      if (best_available.undiscovered_partial_metric > 0.2 * best_available.discovered_partial_metric) {
         // set list size to be 2 times the previous list size
         list_decoders_[0].listSize += 2000;
         list_decoders_[1].listSize += 2000;

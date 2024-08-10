@@ -102,13 +102,19 @@ protected:
 };
 
 struct DLDInfo {
-	DLDInfo(): combined_metric(0.0), discovered_decoder_idx(-1), discovered_partial_metric(-1.0) {};
+	DLDInfo(): combined_metric(0.0), discovered_decoder_idx(-1), discovered_partial_metric(-1.0) {
+		message = std::vector<int>();
+		list_ranks = std::vector<int>();
+		list_ranks.push_back(-1);
+		list_ranks.push_back(-1);
+	};
 	int discovered_decoder_idx;
 	double discovered_partial_metric;
 	double undiscovered_partial_metric;
 	double combined_metric;
 	std::string return_type;
 	std::vector<int> message;
+	std::vector<int> list_ranks;
 };
 
 class DualListDecoder{

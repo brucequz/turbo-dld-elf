@@ -50,7 +50,7 @@ std::vector<double> ComputeSquaredDifferences(
 
 }
 
-int LISTSIZE  = 1e4;
+int LISTSIZE  = 1e3;
 int NUMTRIALS = 50000;
 int MAXERRORS = 100;
 
@@ -150,7 +150,7 @@ void elf_turbo_simulation(codeInformation code) {
     deinterleaver[interleaver[i]] = i;
   }
 
-  vector<double> SNR = {3.0};
+  vector<double> SNR = {4.0};
 
   // outer loop: SNR
   for (int s = 0; s < SNR.size(); s++) {
@@ -323,6 +323,7 @@ void elf_turbo_simulation(codeInformation code) {
           outFile << "true metric: "  << R1_squraed_diff << " + " << sys_squraed_diff
                                       << " + " << R2_squraed_diff
                                       << " -> " << sum_squared_diff << std::endl;
+          outFile << "Decoder 0 list rank: " << result.list_ranks[0] << ", Decoder 1 list rank: " << result.list_ranks[1] << std::endl;
           outFile << std::endl;
         } else {
           std::cerr << "Unable to open file" << std::endl;
